@@ -2,11 +2,11 @@ import math
 from random import randrange
 
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QFileDialog, \
-    QPushButton
+from PyQt5.QtWidgets import QLabel, QMainWindow, QFileDialog, \
+    QPushButton, QSpinBox
 from PIL import Image, ImageDraw
 
-SCREEN_SIZE = [1000, 1000]
+SCREEN_SIZE = [700, 700]
 
 
 def arrowedLine(im, ptA, ptB, width=1, color=(0, 255, 0)):
@@ -34,12 +34,8 @@ def arrowedLine(im, ptA, ptB, width=1, color=(0, 255, 0)):
     vtx0 = (xb + a, yb + b)
     vtx1 = (xb - a, yb - b)
 
-    # draw.point((xb,yb), fill=(255,0,0))    # DEBUG: draw point of base in red - comment out draw.polygon() below if using this line
-    # im.save('DEBUG-base.png')              # DEBUG: save
-
     # Now draw the arrowhead triangle
     draw.polygon([vtx0, vtx1, ptB], fill=color)
-    # return im
 
 
 class Example(QMainWindow):
@@ -48,10 +44,39 @@ class Example(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setGeometry(400, 400, *SCREEN_SIZE)
-        self.setWindowTitle('Отображение картинки')
+        self.setGeometry(0, 0, *SCREEN_SIZE)
+        self.setWindowTitle('Найти Деб')
 
         ## Изображение
+        self.fname = 'resource/deb.jpg'
+        self.image = QLabel(self)
+        self.image.move(10, 0)
+        self.image.resize(680, 740)
+        self.print_image('resource/deb.jpg')
+
+        self.gen = QPushButton(self)
+        self.gen.setText('Генерировать')
+        self.gen.move(150, 0)
+        self.gen.clicked.connect(self.generate)
+
+        self.pushButton = QPushButton(self)
+        self.pushButton.setText('Сохранить')
+        self.pushButton.clicked.connect(self.save)
+
+        self.sel = QPushButton(self)
+        self.sel.setText('Выбрать файл')
+        self.sel.move(300, 0)
+        self.sel.clicked.connect(self.select)
+
+        self.n = QSpinBox(self)
+        self.n.move(450, 0)
+        self.n.setValue(1)
+        self.n.setMinimum(1)
+        self.n.setMaximum(50)
+
+        self.generate()
+
+    def select(self):
         self.fname = QFileDialog.getOpenFileName(self, 'Выбрать картинку', '')[
             0]
         try:
@@ -60,36 +85,52 @@ class Example(QMainWindow):
             print('Это не картинка')
         # Если картинки нет, то QPixmap будет пустым,
         # а исключения не будет
-        self.image = QLabel(self)
-        self.image.move(80, 60)
-        self.image.resize(250, 250)
-        # Отображаем содержимое QPixmap в объекте QLabel
-        self.image.setPixmap(self.pixmap)
-        self.gen = QPushButton(self)
-        self.gen.setText('Генерировать')
-        self.gen.move(150, 0)
-        self.gen.clicked.connect(self.generate)
-        self.pushButton = QPushButton(self)
-        self.pushButton.setText('Создать')
-        self.pushButton.clicked.connect(self.save)
+        self.generate()
 
     def generate(self):
-        im = Image.open(self.fname)
-        drawer = ImageDraw.Draw(im)
-        x, y = im.size
-        deb = Image.open('resource/deb.jpg')
-        deb = deb.resize((x // 10, y // 10))
-        d_x, d_y = deb.size
-        coord = (randrange(0, x - d_x), randrange(0, y - d_y))
-        coord_end_line = (randrange(0, x), randrange(0, y))
-        drawer.rectangle(((coord[0] - 3, coord[1] - 3),
-                          (coord[0] + d_x + 3, coord[1] + d_y + 3)),
-                         fill=(255, 0, 0))
-        drawer.line([
-            (coord[0] + (d_x // 2), coord[1] + (d_x // 2)),
-            coord_end_line], fill="red", width=3)
-        im.paste(deb, coord)
-        im.save('tmp/tmp_deb.jpg')
+        if self.fname:
+            self.im = Image.open(self.fname)
+            drawer = ImageDraw.Draw(self.im)
+            x, y = self.im.size
+            deb = Image.open('resource/deb.jpg')
+            deb = deb.resize((x // 10, y // 10))
+            d_x, d_y = deb.size
+            for i in range(self.n.value()):
+                coord = (randrange(0, x - d_x), randrange(0, y - d_y))
+                coord_end_line = (randrange(0, x), randrange(0, y))
+                drawer.rectangle(((coord[0] - 3, coord[1] - 3),
+                                  (coord[0] + d_x + 3, coord[1] + d_y + 3)),
+                                 fill=(255, 0, 0))
+                arrowedLine(self.im,
+                            (coord[0] + (d_x // 2), coord[1] + (d_x // 2)),
+                            coord_end_line, color="red", width=3)
+                self.im.paste(deb, coord)
+            self.im.save('tmp/tmp_deb.png')
+            self.print_image('tmp/tmp_deb.png')
+            return x, y
+        return 0, 0
 
     def save(self):
-        pass
+        try:
+            SaveFileDiolog = QFileDialog. \
+                getSaveFileName(self,
+                                'Сохранить', 'unnamed.png',
+                                'Картинка (*.jpg; *.jpeg; *.png; *.jfif);')
+            print(SaveFileDiolog[0])
+            self.im.save(SaveFileDiolog[0])
+            self.statusBar().setStyleSheet("background-color : green")
+            self.statusBar().showMessage(
+                'Сохранено успешно в {}'.format(SaveFileDiolog), 100)
+        except:
+            self.statusBar().setStyleSheet("background-color : red")
+            self.statusBar().showMessage('Ошибка при сохранении!', 100)
+
+    def print_image(self, path):
+        self.pixmap = QPixmap(path)
+        print(path)
+        k = 1
+        if self.pixmap.width() >= SCREEN_SIZE[0]:
+            k = SCREEN_SIZE[0] / (self.pixmap.width() + 20)
+        self.pixmap = self.pixmap.scaled(int(self.pixmap.width() * k),
+                                         int(self.pixmap.height() * k))
+        self.image.setPixmap(self.pixmap)
